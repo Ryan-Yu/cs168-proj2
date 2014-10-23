@@ -37,6 +37,7 @@ class BasicSender(object):
 
     # Prepares a packet
     def make_packet(self,msg_type,seqno,msg):
+        # msg_type can be either 'start', 'end', 'data', or 'ack'
         body = "%s|%d|%s|" % (msg_type,seqno,msg)
         checksum = Checksum.generate_checksum(body)
         packet = "%s%s" % (body,checksum)
