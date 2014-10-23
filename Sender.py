@@ -15,7 +15,10 @@ class Sender(BasicSender.BasicSender):
 
     # Main sending loop.
     def start(self):
-        raise NotImplementedError
+        # NOTE: Packet payload size should be larger than 1000 bytes (unless it is the last packet in the stream)
+        # but less than 1472 bytes.
+
+        pass
 
     def handle_timeout(self):
         pass
