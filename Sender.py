@@ -174,9 +174,11 @@ class Sender(BasicSender.BasicSender):
     # This has been taken from StanfurdSender.py
     def handle_response(self,response_packet):
         if Checksum.validate_checksum(response_packet):
-            print "recv: %s" % response_packet
+            print "Checksum is valid: %s" % response_packet
         else:
-            print "recv: %s <--- CHECKSUM FAILED" % response_packet
+            # Checksum for response packet is not valid
+            # Naively, we simply just resend the packet
+            self.send(self.packet_to_send)
 
 
 
