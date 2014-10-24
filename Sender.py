@@ -8,12 +8,63 @@ import BasicSender
 '''
 This is a skeleton sender class. Create a fantastic transport protocol here.
 '''
+
+class Window(object):
+
+    def __init__(self, window_size):
+        self.seqno_to_packet_map = {}
+        self.seqno_to_ack_map = {}
+        self.window_size = window_size
+
+    # Adds a <sequence number -> packet> pair into map
+    def add_packet_to_map(self, seqno, packet):
+        self.seqno_to_packet_map[seqno] = packet
+
+    # Removes a <sequence number -> packet> pair from map
+    def remove_seqno_from_packet_map(self, seqno):
+        del self.seqno_to_packet_map[seqno]
+
+    # Adds a <sequence number -> ack> pair into map
+    def add_ack_to_map(self, seqno, ack):
+        self.seqno_to_ack_map[seqno] = ack
+
+    # Removes a <sequence number -> ack> pair from map
+    def remove_seqno_from_ack_map(self, seqno):
+        del self.seqno_to_ack_map[seqno]
+
+    # Gets a packet associated with a particular sequence number
+    def get_packet_via_seqno(self, seqno):
+        return self.seqno_to_packet_map[seqno]
+
+    # Gets the ack associated with a particular sequence number
+    def get_ack_number_via_seqno(self, seqno):
+        return self.seqno_to_ack_map[seqno]
+
+    # Returns true or false based on whether more packets can be fit into the window
+    def window_is_full(self):
+        return len(self.seqno_to_packet_map) >= self.window_size
+
+    # Returns true or false based on whether a particular packet is contained in our window
+    def is_seqno_contained_in_packet_map(self, seqno):
+        return seqno in self.seqno_to_packet_map
+
+
+
+
+
 class Sender(BasicSender.BasicSender):
 
-    CHUNK_SIZE = 1472
+    PACKET_SIZE = 1472
+    # Entire packet contains message type, sequence number, data, and checksum
+    # Message type can be either 'start', 'end', 'ack', or 'data', for a maximum of 5 bytes
+    # Sequence number can be up to 32 bits = 8 bytes
+    # Checksum can be up to 10 bytes
+    # We also have 3 separators, '|', for a total of 3 bytes
+    CHUNK_SIZE = PACKET_SIZE - 5 - 8 - 10 - 3
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
+        self.window = Window(5)
         if sackMode:
             raise NotImplementedError #remove this line when you implement SACK
 
@@ -24,8 +75,7 @@ class Sender(BasicSender.BasicSender):
 
         seqno = 0
         msg_type = None
-        # file_size = os.path.getsize(self.infile)
-        # print(file_size)
+
         while not msg_type == 'end':
             # First, check whether the number of bytes in the infile is > 1472
             file_chunk = self.chunkFile(self.infile)
@@ -41,10 +91,12 @@ class Sender(BasicSender.BasicSender):
             self.send(packet_to_send)
             print("Just sent packet: " + packet_to_send)
 
-            packet_response = self.receive()
+            packet_response = self.receive(0.5)
 
             self.handle_response(packet_response)
             seqno = seqno + 1
+
+
 
     def handle_timeout(self):
         pass
@@ -61,7 +113,7 @@ class Sender(BasicSender.BasicSender):
 
     # Chunks a file into size 1472 bytes, if it is able to be chunked
     def chunkFile(self, file):
-        chunk = self.infile.read(self.CHUNK_SIZE)
+        chunk = file.read(self.CHUNK_SIZE)
         # If no chunk, will return empty string; else, returns String representation of chunk
         return chunk
 
