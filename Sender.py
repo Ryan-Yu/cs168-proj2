@@ -29,19 +29,17 @@ class Sender(BasicSender.BasicSender):
         while not msg_type == 'end':
             # First, check whether the number of bytes in the infile is > 1472
             fileChunk = self.chunkFile(self.infile)
-            print(fileChunk)
-
+      
             # make_packet(self,msg_type, seqno, msg):
 
             # Set msg_type appropriately, based on what type the chunk is
             msg_type = 'data'
             if seqno == 0:
                 msg_type = 'start'
-            elif fileChunk == "":
+            elif not fileChunk:
                 msg_type = 'end'
-                print("just set msg_type to end")
 
-            # seqno++
+            seqno = seqno + 1
 
     def handle_timeout(self):
         pass
