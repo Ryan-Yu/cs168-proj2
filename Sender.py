@@ -10,7 +10,7 @@ This is a skeleton sender class. Create a fantastic transport protocol here.
 '''
 class Sender(BasicSender.BasicSender):
 
-    CHUNK_SIZE = 5
+    CHUNK_SIZE = 1472
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
