@@ -8,6 +8,9 @@ import BasicSender
 This is a skeleton sender class. Create a fantastic transport protocol here.
 '''
 class Sender(BasicSender.BasicSender):
+
+    CHUNK_SIZE = 1472
+
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
         if sackMode:
@@ -32,6 +35,16 @@ class Sender(BasicSender.BasicSender):
     def log(self, msg):
         if self.debug:
             print msg
+
+    # Chunks a file into size 1472 bytes, if it is able to be chunked
+    def chunkFile(self, file):
+        chunk = self.infile.read(CHUNK_SIZE)
+        if not chunk:
+            return
+        return chunk
+
+
+
 
 
 '''
