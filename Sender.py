@@ -10,7 +10,7 @@ This is a skeleton sender class. Create a fantastic transport protocol here.
 '''
 class Sender(BasicSender.BasicSender):
 
-    CHUNK_SIZE = 5
+    CHUNK_SIZE = 1472
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
@@ -27,6 +27,7 @@ class Sender(BasicSender.BasicSender):
         # file_size = os.path.getsize(self.infile)
         # print(file_size)
         while not msg_type == 'end':
+
             # First, check whether the number of bytes in the infile is > 1472
             file_chunk = self.chunkFile(self.infile)
 
@@ -41,13 +42,19 @@ class Sender(BasicSender.BasicSender):
             self.send(packet_to_send)
             print("Just sent packet: " + packet_to_send)
 
-            packet_response = self.receive()
+            # Timeout with 0.5 seconds = 500ms
+            packet_response = self.receive(0.5)
 
+            if packet_response is None:
+                self.handle_timeout()
             self.handle_response(packet_response)
             seqno = seqno + 1
+ 
+
+
 
     def handle_timeout(self):
-        pass
+        self.send(self.packet_to_send)
 
     def handle_new_ack(self, ack):
         pass
