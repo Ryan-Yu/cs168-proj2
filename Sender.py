@@ -1,5 +1,6 @@
 import sys
 import getopt
+import os
 
 import Checksum
 import BasicSender
@@ -9,7 +10,7 @@ This is a skeleton sender class. Create a fantastic transport protocol here.
 '''
 class Sender(BasicSender.BasicSender):
 
-    CHUNK_SIZE = 1472
+    CHUNK_SIZE = 5
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
@@ -21,7 +22,26 @@ class Sender(BasicSender.BasicSender):
         # NOTE: Packet payload size should be larger than 1000 bytes (unless it is the last packet in the stream)
         # but less than 1472 bytes.
 
-        pass
+        seqno = 0
+        msg_type = None
+        file_size = os.path.getsize(self.infile)
+        print(file_size)
+        while not msg_type == 'end':
+            # First, check whether the number of bytes in the infile is > 1472
+            fileChunk = self.chunkFile(self.infile)
+
+            make_packet(self,msg_type, seqno, msg):
+
+            # Set msg_type appropriately, based on what type the chunk is
+            msg_type = 'data'
+            if seqno == 0:
+                msg_type = 'start'
+            elif testChunk == "":
+                msg_type = 'end'
+
+            print(fileChunk)
+
+            seqno++
 
     def handle_timeout(self):
         pass
@@ -38,9 +58,8 @@ class Sender(BasicSender.BasicSender):
 
     # Chunks a file into size 1472 bytes, if it is able to be chunked
     def chunkFile(self, file):
-        chunk = self.infile.read(CHUNK_SIZE)
-        if not chunk:
-            return
+        chunk = self.infile.read(self.CHUNK_SIZE)
+        # If no chunk, will return empty string; else, returns String representation of chunk
         return chunk
 
 
