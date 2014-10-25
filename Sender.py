@@ -12,6 +12,9 @@ class Window(object):
 
     def __init__(self, window_size):
         self.seqno_to_packet_map = {}
+
+        # Map of <sequence number -> number of ACKs that have been received with this sequence number>
+        # We use this map to determine how to handle duplicate ACKs
         self.seqno_to_ack_map = {}
         self.window_size = window_size
 
@@ -23,11 +26,11 @@ class Window(object):
     def remove_seqno_from_packet_map(self, seqno):
         del self.seqno_to_packet_map[seqno]
 
-    # Adds a <sequence number -> ack> pair into map
-    def add_ack_to_map(self, seqno, ack):
+    # Adds a <sequence number -> number of ACKs> pair into map
+    def add_acks_count_to_map(self, seqno, ack):
         self.seqno_to_ack_map[seqno] = ack
 
-    # Removes a <sequence number -> ack> pair from map
+    # Removes a <sequence number -> number of ACKs> pair from map
     def remove_seqno_from_ack_map(self, seqno):
         del self.seqno_to_ack_map[seqno]
 
@@ -35,7 +38,7 @@ class Window(object):
     def get_packet_via_seqno(self, seqno):
         return self.seqno_to_packet_map[seqno]
 
-    # Gets the ack associated with a particular sequence number
+    # Gets the number of ACKs with a particular sequence number
     def get_ack_number_via_seqno(self, seqno):
         return self.seqno_to_ack_map[seqno]
 
@@ -43,9 +46,13 @@ class Window(object):
     def window_is_full(self):
         return len(self.seqno_to_packet_map) >= self.window_size
 
-    # Returns true or false based on whether a particular packet is contained in our window
+    # Returns true or false based on whether a particular sequence number is contained in our window
     def is_seqno_contained_in_packet_map(self, seqno):
         return seqno in self.seqno_to_packet_map
+
+    # Returns true or false based on whether a particular seqno is contained in our ACK map
+    def is_seqno_contained_in_ack_map(self, seqno):
+        return seqno in self.seqno_to_ack_map
 
     def get_number_of_packets_in_window(self):
         return len(self.seqno_to_packet_map)
@@ -60,6 +67,8 @@ class Sender(BasicSender.BasicSender):
     # Sequence number can be up to 32 bits = 8 bytes
     # Checksum can be up to 10 bytes
     # We also have 3 separators, '|', for a total of 3 bytes
+
+    # Piazza says that the CHUNK_SIZE can also just be set to 1400 bytes
     CHUNK_SIZE = PACKET_SIZE - 5 - 8 - 10 - 3
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
@@ -86,6 +95,8 @@ class Sender(BasicSender.BasicSender):
                 is_chunking_done = self.send_next_packet_chunk()
                 if is_chunking_done:
                     msg_type = 'end'
+
+            # Receive an ACK from the Receiver
             packet_response = self.receive(0.5)
 
             # If we haven't received a response in 500ms, then handle timeout
@@ -95,7 +106,39 @@ class Sender(BasicSender.BasicSender):
                 # TODO: Our ACK was successfully received -- what do we do in this case?
                 # TODO: Probably need to update <sequence number -> ACK> map?
                 # (Need to validate checksum before we do anything, in this block)
-                self.handle_response(packet_response)
+                # self.handle_response(packet_response)
+
+                # Via the spec, we ignore all ACK packets with an invalid checksum
+                if Checksum.validate_checksum(packet_response):
+                    msg_type, seqno, data, checksum = self.split_packet(packet_response)
+
+                    # For some reason, 'seqno' is returned as a string... so we parse it into an integer
+                    seqno = int(seqno)
+
+                    # Do ACKs have data? Probably not?
+                    print("Received packet: %s | %d | %s | %s" % (msg_type, seqno, data, checksum))
+
+                    # Put the current sequence number in our <sequence number -> ACKs> map, given some conditions
+
+                    # If we haven't seen the current ACK before
+                    if not self.window.is_seqno_contained_in_ack_map(seqno):
+                        self.window.add_acks_count_to_map(seqno, 0)
+
+                        # TODO: Not really sure what this will do yet... but.
+                        self.handle_new_ack(seqno)
+
+                    # Current sequence number is NOT already contained within our map...
+                    # else:
+                    #     # Increment the number of ACKs (for seqno) by 1
+                    #     self.window.add_acks_count_to_map(seqno, self.window.get_ack_number_via_seqno(seqno) + 1)
+                    #     # Algorithm: If ACK count is 3, then we use fast retransmit and resend the seqno with count == 3
+
+                else:
+                    # Ignore ACKs with invalid checksum
+                    pass
+
+
+
 
             # Go-Back-N Behavior:
             # If window size is 3, then:
@@ -141,6 +184,10 @@ class Sender(BasicSender.BasicSender):
 
         # Send newly generated packet and increment the sequence number by 1
         self.send(packet_to_send)
+
+        # Update packet map
+        self.window.add_packet_to_map(self.current_sequence_number, packet_to_send)
+
         print("Just sent packet: " + packet_to_send)
         self.current_sequence_number += 1
 
@@ -152,6 +199,18 @@ class Sender(BasicSender.BasicSender):
 
     def handle_timeout(self):
         # If a timeout occurs, then GBN specifies that we resend everything in our window
+        # *This handles PACKET LOSS OF ARBITRARY SIZE* 
+        # This is because we will only attempt to send n packets, where n is the size of our window
+        # If we don't receive an ACK for any one packet, then it will time out, and this method will
+        # resend EVERYTHING in the current window
+
+        # i.e. in the below example, this method will send the last five packets (3, 4, 5, 6, 7), resulting
+        # in ACKs of (8, 8, 8, 8, 8)
+
+        # https://piazza.com/class/hz9lw7aquvu2r9?cid=637
+        # (is this correct?)
+        #       1 2 3 (dropped) 4 5 6 7 3 4 5 6 7
+        # ACKS: 2 3 4           4 4 4 4 8 8 8 8 8
         pass
 
     def handle_new_ack(self, ack):
