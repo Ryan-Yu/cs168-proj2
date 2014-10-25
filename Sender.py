@@ -116,22 +116,27 @@ class Sender(BasicSender.BasicSender):
                     seqno = int(seqno)
 
                     # Do ACKs have data? Probably not?
-                    print("Received packet: %s | %d | %s | %s" % (msg_type, seqno, data, checksum))
+                    if (self.debug):
+                        # print("Received packet: %s | %d | %s | %s" % (msg_type, seqno, data, checksum))
+                        print("Received packet!")
 
                     # Put the current sequence number in our <sequence number -> ACKs> map, given some conditions
 
                     # If we haven't seen the current ACK before
                     if not self.window.is_seqno_contained_in_ack_map(seqno):
-                        self.window.add_acks_count_to_map(seqno, 0)
 
                         # TODO: Not really sure what this will do yet... but.
                         self.handle_new_ack(seqno)
 
                     # Current sequence number is NOT already contained within our map...
-                    # else:
-                    #     # Increment the number of ACKs (for seqno) by 1
-                    #     self.window.add_acks_count_to_map(seqno, self.window.get_ack_number_via_seqno(seqno) + 1)
-                    #     # Algorithm: If ACK count is 3, then we use fast retransmit and resend the seqno with count == 3
+                    else:
+                        pass
+                        # # Increment the number of ACKs (for seqno) by 1
+                        # self.window.add_acks_count_to_map(seqno, self.window.get_ack_number_via_seqno(seqno) + 1)
+
+                        # # Algorithm: If ACK count is 3, then we use fast retransmit and resend the seqno with count == 3
+                        # if (self.window.get_ack_number_via_seqno(seqno) == 3):
+                        #     self.handle_dup_ack(seqno)
 
                 else:
                     # Ignore ACKs with invalid checksum
@@ -188,7 +193,9 @@ class Sender(BasicSender.BasicSender):
         # Update packet map
         self.window.add_packet_to_map(self.current_sequence_number, packet_to_send)
 
-        print("Just sent packet: " + packet_to_send)
+        if (self.debug):
+            # print("Just sent packet: " + packet_to_send)
+            print("Just sent packet!")
         self.current_sequence_number += 1
 
         packet_finished_chunking = (msg_type == 'end')
@@ -207,14 +214,34 @@ class Sender(BasicSender.BasicSender):
         # i.e. in the below example, this method will send the last five packets (3, 4, 5, 6, 7), resulting
         # in ACKs of (8, 8, 8, 8, 8)
 
+        # Assuming NO FAST RETRANSMIT
         # https://piazza.com/class/hz9lw7aquvu2r9?cid=637
         # (is this correct?)
         #       1 2 3 (dropped) 4 5 6 7 3 4 5 6 7
         # ACKS: 2 3 3           3 3 3 3 8 8 8 8 8
-        pass
 
+        for seqno in self.window.seqno_to_packet_map:
+            current_packet = self.window.get_packet_via_seqno(seqno)
+            self.send(current_packet)
+
+    # Called when we encounter an ACK with a sequence number that we have never seen before
     def handle_new_ack(self, ack):
-        pass
+        # Slide the window if it is full
+        if self.window.window_is_full:
+            # Find the least sequence number in our maps, and remove it from both maps
+            least_seq_no = min(self.window.seqno_to_packet_map.keys())
+            print("Our packet map looks like: %s" % self.window.seqno_to_packet_map)
+            self.window.remove_seqno_from_packet_map(least_seq_no)
+            # self.window.remove_seqno_from_ack_map(least_seq_no)
+
+        # Window is not full
+        else:
+            # Put this new ACK into our map
+            print("I just added ack %s!!!!!!!!" % ack)
+            self.window.add_acks_count_to_map(ack, 0)
+
+
+
 
     def handle_dup_ack(self, ack):
         pass
@@ -233,7 +260,8 @@ class Sender(BasicSender.BasicSender):
     # This has been taken from StanfurdSender.py
     def handle_response(self,response_packet):
         if Checksum.validate_checksum(response_packet):
-            print "Checksum is valid: %s" % response_packet
+            # print "Checksum is valid: %s" % response_packet
+            print "Checksum is valid!"
         else:
             # Checksum for response packet is not valid
             # Naively, we simply just resend the packet
@@ -268,7 +296,7 @@ if __name__ == "__main__":
     port = 33122
     dest = "localhost"
     filename = None
-    debug = False
+    debug = True
     sackMode = False
 
     for o,a in opts:
