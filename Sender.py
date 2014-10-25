@@ -69,13 +69,15 @@ class Sender(BasicSender.BasicSender):
     # We also have 3 separators, '|', for a total of 3 bytes
 
     # Piazza says that the CHUNK_SIZE can also just be set to 1400 bytes
-    CHUNK_SIZE = PACKET_SIZE - 5 - 8 - 10 - 3
+    # CHUNK_SIZE = PACKET_SIZE - 5 - 8 - 10 - 3
+    CHUNK_SIZE = 14
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
         self.window = Window(5)
         self.current_sequence_number = 0
         self.done_sending = False
+        self.is_chunking_done = False
 
         if sackMode:
             raise NotImplementedError #remove this line when you implement SACK
@@ -86,14 +88,13 @@ class Sender(BasicSender.BasicSender):
         # but less than 1472 bytes.
 
         msg_type = None
-        is_chunking_done = False
 
         while not self.done_sending:
             # Repeatedly send packets until our window is full or until our chunking is complete (i.e. msg_type == false)
-            while not self.window.window_is_full() and is_chunking_done is False:
+            while not self.window.window_is_full() and self.is_chunking_done is False:
                 # Send the next packet chunk and return a boolean that represents whether we are done chunking
-                is_chunking_done = self.send_next_packet_chunk()
-                if is_chunking_done:
+                self.is_chunking_done = self.send_next_packet_chunk()
+                if self.is_chunking_done:
                     msg_type = 'end'
 
             # Receive an ACK from the Receiver
@@ -156,7 +157,8 @@ class Sender(BasicSender.BasicSender):
             if (self.window.get_number_of_packets_in_window() == 0):
 
                 self.done_sending = True
-            
+        
+        print("Window is empty, so we are done!")    
 
     '''
     Helper method that does the following things:
@@ -192,7 +194,7 @@ class Sender(BasicSender.BasicSender):
         self.window.add_packet_to_map(self.current_sequence_number, packet_to_send)
 
         if (self.debug):
-            print("Just sent packet: " + packet_to_send)
+            print("Just sent packet with sequence number %s" % self.current_sequence_number)
         self.current_sequence_number += 1
 
         packet_finished_chunking = (msg_type == 'end')
@@ -217,16 +219,23 @@ class Sender(BasicSender.BasicSender):
         #       1 2 3 (dropped) 4 5 6 7 3 4 5 6 7
         # ACKS: 2 3 3           3 3 3 3 8 8 8 8 8
 
+        print("We are in handle_timeout")
+
         for seqno in self.window.seqno_to_packet_map:
             current_packet = self.window.get_packet_via_seqno(seqno)
+            print("We are able to resend packet %s" % seqno)
             self.send(current_packet)
 
     # Called when we encounter an ACK with a sequence number that we have never seen before
     def handle_new_ack(self, ack):
         # Slide the window if it is full
-        if self.window.window_is_full:
+        if self.window.window_is_full() or self.is_chunking_done:
+
             # Find the least sequence number in our maps, and remove it from both maps
             least_seq_no = min(self.window.seqno_to_packet_map.keys())
+
+            print("We are shifting our window right now and removing sequence number %s from it" % least_seq_no)
+
             self.window.remove_seqno_from_packet_map(least_seq_no)
             # self.window.remove_seqno_from_ack_map(least_seq_no)
 
