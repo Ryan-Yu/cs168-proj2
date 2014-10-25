@@ -73,7 +73,7 @@ class Sender(BasicSender.BasicSender):
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
-        self.window = Window(500)
+        self.window = Window(5)
         self.current_sequence_number = 0
         self.done_sending = False
 
@@ -117,15 +117,12 @@ class Sender(BasicSender.BasicSender):
 
                     # Do ACKs have data? Probably not?
                     if (self.debug):
-                        # print("Received packet: %s | %d | %s | %s" % (msg_type, seqno, data, checksum))
-                        print("Received packet!")
+                        print("Received packet: %s | %d | %s | %s" % (msg_type, seqno, data, checksum))
 
                     # Put the current sequence number in our <sequence number -> ACKs> map, given some conditions
 
                     # If we haven't seen the current ACK before
                     if not self.window.is_seqno_contained_in_ack_map(seqno):
-
-                        # TODO: Not really sure what this will do yet... but.
                         self.handle_new_ack(seqno)
 
                     # Current sequence number is NOT already contained within our map...
@@ -156,7 +153,8 @@ class Sender(BasicSender.BasicSender):
 
             # Declare that we are done sending if our window is empty
             # TODO: Is there another condition where we set self.done_sending equal to False?
-            if (self.window.get_number_of_packets_in_window == 0):
+            if (self.window.get_number_of_packets_in_window() == 0):
+
                 self.done_sending = True
             
 
@@ -194,8 +192,7 @@ class Sender(BasicSender.BasicSender):
         self.window.add_packet_to_map(self.current_sequence_number, packet_to_send)
 
         if (self.debug):
-            # print("Just sent packet: " + packet_to_send)
-            print("Just sent packet!")
+            print("Just sent packet: " + packet_to_send)
         self.current_sequence_number += 1
 
         packet_finished_chunking = (msg_type == 'end')
@@ -230,17 +227,13 @@ class Sender(BasicSender.BasicSender):
         if self.window.window_is_full:
             # Find the least sequence number in our maps, and remove it from both maps
             least_seq_no = min(self.window.seqno_to_packet_map.keys())
-            print("Our packet map looks like: %s" % self.window.seqno_to_packet_map)
             self.window.remove_seqno_from_packet_map(least_seq_no)
             # self.window.remove_seqno_from_ack_map(least_seq_no)
 
         # Window is not full
         else:
             # Put this new ACK into our map
-            print("I just added ack %s!!!!!!!!" % ack)
             self.window.add_acks_count_to_map(ack, 0)
-
-
 
 
     def handle_dup_ack(self, ack):
