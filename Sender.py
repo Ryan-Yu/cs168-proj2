@@ -210,7 +210,7 @@ class Sender(BasicSender.BasicSender):
         # https://piazza.com/class/hz9lw7aquvu2r9?cid=637
         # (is this correct?)
         #       1 2 3 (dropped) 4 5 6 7 3 4 5 6 7
-        # ACKS: 2 3 4           4 4 4 4 8 8 8 8 8
+        # ACKS: 2 3 3           3 3 3 3 8 8 8 8 8
         pass
 
     def handle_new_ack(self, ack):
