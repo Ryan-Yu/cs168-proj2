@@ -69,8 +69,7 @@ class Sender(BasicSender.BasicSender):
     # We also have 3 separators, '|', for a total of 3 bytes
 
     # Piazza says that the CHUNK_SIZE can also just be set to 1400 bytes
-    # CHUNK_SIZE = PACKET_SIZE - 5 - 8 - 10 - 3
-    CHUNK_SIZE = 14
+    CHUNK_SIZE = PACKET_SIZE - 5 - 8 - 10 - 3
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
@@ -104,10 +103,6 @@ class Sender(BasicSender.BasicSender):
             if (packet_response == None):
                 self.handle_timeout()
             else:
-                # TODO: Our ACK was successfully received -- what do we do in this case?
-                # TODO: Probably need to update <sequence number -> ACK> map?
-                # (Need to validate checksum before we do anything, in this block)
-                # self.handle_response(packet_response)
 
                 # Via the spec, we ignore all ACK packets with an invalid checksum
                 if Checksum.validate_checksum(packet_response):
@@ -124,7 +119,6 @@ class Sender(BasicSender.BasicSender):
 
                     # If we haven't seen the current ACK before
                     if not self.window.is_seqno_contained_in_ack_map(seqno):
-
                         self.handle_new_ack(seqno)
 
                     # Current sequence number is NOT already contained within our map...
@@ -139,24 +133,13 @@ class Sender(BasicSender.BasicSender):
 
                 else:
                     # Ignore ACKs with invalid checksum
+                    # Do we need to handle_timeout() if we receive an ACK with an invalid checksum?
+                    self.handle_timeout()
                     pass
-
-
-
-
-            # Go-Back-N Behavior:
-            # If window size is 3, then:
-            # Send packets 1, 2, 3 successfully
-            # Packet 4 dropped, packets 5, 6 sent successfully
-            # Window {4, 5, 6} times out, GBN resends 4, 5, 6
-            # ACKs: 2, 3, 4, 4, 4, 7
-
-
 
             # Declare that we are done sending if our window is empty
             # TODO: Is there another condition where we set self.done_sending equal to False?
             if (self.window.get_number_of_packets_in_window() == 0):
-
                 self.done_sending = True
 
 
@@ -244,10 +227,8 @@ class Sender(BasicSender.BasicSender):
                 if self.debug:
                     print("We are shifting our window right now and removing sequence number %s from it" % seqno_to_remove)       
 
-        # Window is not full and chunking is not done
-        else:
-            # Put this new ACK into our map
-            self.window.add_acks_count_to_map(ack, 0)
+        # Because we haven't seen the current ACK before, put it in our ACK map
+        self.window.add_acks_count_to_map(ack, 0)
 
     def handle_dup_ack(self, ack):
         pass
