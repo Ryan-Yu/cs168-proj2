@@ -70,6 +70,7 @@ class Sender(BasicSender.BasicSender):
 
     # Piazza says that the CHUNK_SIZE can also just be set to 1400 bytes
     CHUNK_SIZE = PACKET_SIZE - 5 - 8 - 10 - 3
+    # CHUNK_SIZE = 1000
 
     def __init__(self, dest, port, filename, debug=False, sackMode=False):
         super(Sender, self).__init__(dest, port, filename, debug)
@@ -123,13 +124,12 @@ class Sender(BasicSender.BasicSender):
 
                     # Current sequence number is NOT already contained within our map...
                     else:
-                        pass
-                        # # Increment the number of ACKs (for seqno) by 1
-                        # self.window.add_acks_count_to_map(seqno, self.window.get_ack_number_via_seqno(seqno) + 1)
+                        # Increment the number of ACKs (for seqno) by 1
+                        self.window.add_acks_count_to_map(seqno, self.window.get_ack_number_via_seqno(seqno) + 1)
 
-                        # # Algorithm: If ACK count is 3, then we use fast retransmit and resend the seqno with count == 3
-                        # if (self.window.get_ack_number_via_seqno(seqno) == 3):
-                        #     self.handle_dup_ack(seqno)
+                        # Algorithm: If ACK count is 3, then we use fast retransmit and resend the seqno with count == 3
+                        if (self.window.get_ack_number_via_seqno(seqno) == 3):
+                            self.handle_dup_ack(seqno)
 
                 else:
                     # Ignore ACKs with invalid checksum
@@ -137,9 +137,8 @@ class Sender(BasicSender.BasicSender):
                     self.handle_timeout()
                     pass
 
-            # Declare that we are done sending if our window is empty
-            # TODO: Is there another condition where we set self.done_sending equal to False?
-            if (self.window.get_number_of_packets_in_window() == 0):
+            # Declare that we are done sending if our window is empty AND we are done chunking
+            if (self.window.get_number_of_packets_in_window() == 0 and self.is_chunking_done is True):
                 self.done_sending = True
 
 
@@ -231,7 +230,14 @@ class Sender(BasicSender.BasicSender):
         self.window.add_acks_count_to_map(ack, 0)
 
     def handle_dup_ack(self, ack):
-        pass
+        if (self.debug):
+            print("We are now handling the duplicate ACK %s!!!!!!!!!!!!!!!!!" % ack)
+
+        # Grab packet that has the sequence number of 'ack', and resend it
+        packet_to_resend = self.window.get_packet_via_seqno(ack)
+        self.send(packet_to_resend)
+        if (self.debug):
+            print("We just resent ACK %s due to fast retransmit!!!!!" % ack)
 
     def log(self, msg):
         if self.debug:
@@ -283,7 +289,7 @@ if __name__ == "__main__":
     port = 33122
     dest = "localhost"
     filename = None
-    debug = False
+    debug = True
     sackMode = False
 
     for o,a in opts:
