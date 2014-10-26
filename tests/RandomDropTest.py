@@ -16,7 +16,7 @@ class RandomDropTest(BasicTest):
             if random.choice([True, False]):
                 self.forwarder.out_queue.append(p)
 
-            else:
-            	print("We have dropped packet %s" % p)
+            # else:
+            # 	print("We have dropped packet %s" % p)
         # empty out the in_queue
         self.forwarder.in_queue = []
