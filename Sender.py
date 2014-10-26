@@ -124,6 +124,7 @@ class Sender(BasicSender.BasicSender):
 
                     # If we haven't seen the current ACK before
                     if not self.window.is_seqno_contained_in_ack_map(seqno):
+
                         self.handle_new_ack(seqno)
 
                     # Current sequence number is NOT already contained within our map...
@@ -157,8 +158,7 @@ class Sender(BasicSender.BasicSender):
             if (self.window.get_number_of_packets_in_window() == 0):
 
                 self.done_sending = True
-        
-        print("Window is empty, so we are done!")    
+
 
     '''
     Helper method that does the following things:
@@ -219,31 +219,35 @@ class Sender(BasicSender.BasicSender):
         #       1 2 3 (dropped) 4 5 6 7 3 4 5 6 7
         # ACKS: 2 3 3           3 3 3 3 8 8 8 8 8
 
-        print("We are in handle_timeout")
-
         for seqno in self.window.seqno_to_packet_map:
             current_packet = self.window.get_packet_via_seqno(seqno)
-            print("We are able to resend packet %s" % seqno)
+
+            if self.debug:
+                print("We are able to resend packet %s" % seqno)
+
             self.send(current_packet)
 
     # Called when we encounter an ACK with a sequence number that we have never seen before
     def handle_new_ack(self, ack):
+
         # Slide the window if it is full
         if self.window.window_is_full() or self.is_chunking_done:
 
-            # Find the least sequence number in our maps, and remove it from both maps
-            least_seq_no = min(self.window.seqno_to_packet_map.keys())
+            # Find all entries in map that have sequence number less than 'ack', and remove them from the map
+            list_of_sequences_numbers_to_remove = []
+            for seqno in self.window.seqno_to_packet_map:
+                if seqno < ack:
+                    list_of_sequences_numbers_to_remove.append(seqno)
+            for seqno_to_remove in list_of_sequences_numbers_to_remove:
+                self.window.remove_seqno_from_packet_map(seqno_to_remove)
 
-            print("We are shifting our window right now and removing sequence number %s from it" % least_seq_no)
+                if self.debug:
+                    print("We are shifting our window right now and removing sequence number %s from it" % seqno_to_remove)       
 
-            self.window.remove_seqno_from_packet_map(least_seq_no)
-            # self.window.remove_seqno_from_ack_map(least_seq_no)
-
-        # Window is not full
+        # Window is not full and chunking is not done
         else:
             # Put this new ACK into our map
             self.window.add_acks_count_to_map(ack, 0)
-
 
     def handle_dup_ack(self, ack):
         pass
@@ -298,7 +302,7 @@ if __name__ == "__main__":
     port = 33122
     dest = "localhost"
     filename = None
-    debug = True
+    debug = False
     sackMode = False
 
     for o,a in opts:
