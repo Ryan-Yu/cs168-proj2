@@ -14,7 +14,7 @@ create your own.
 """
 class RandomDuplicateTest(BasicTest):
     def __init__(self, forwarder, input_file):
-        BasicTest.__init__(self, forwarder, input_file)
+        BasicTest.__init__(self, forwarder, input_file, sackMode = True)
         self.myname = "RandomDuplicateTest"
 
     def handle_packet(self):

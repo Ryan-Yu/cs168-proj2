@@ -20,7 +20,7 @@ class Window(object):
 
     # Adds a <sequence number -> packet> pair into map
     def add_packet_to_map(self, seqno, packet):
-        self.seqno_to_packet_map[seqno] = packet
+        self.seqno_to_packet_map[seqno] = (packet, False)
 
     # Removes a <sequence number -> packet> pair from map
     def remove_seqno_from_packet_map(self, seqno):
@@ -34,8 +34,11 @@ class Window(object):
     def remove_seqno_from_ack_map(self, seqno):
         del self.seqno_to_ack_map[seqno]
 
-    # Gets a packet associated with a particular sequence number
+    # Gets a packet pair associated with a particular sequence number
     def get_packet_via_seqno(self, seqno):
+        return self.seqno_to_packet_map[seqno][0]
+
+    def get_packet_pair_via_seqno(self, seqno):
         return self.seqno_to_packet_map[seqno]
 
     # Gets the number of ACKs with a particular sequence number
@@ -78,9 +81,10 @@ class Sender(BasicSender.BasicSender):
         self.current_sequence_number = 0
         self.done_sending = False
         self.is_chunking_done = False
+        self.sackMode = sackMode
 
-        if sackMode:
-            raise NotImplementedError #remove this line when you implement SACK
+        # if sackMode:
+        #     raise NotImplementedError #remove this line when you implement SACK
 
     # Main sending loop.
     def start(self):
@@ -109,8 +113,11 @@ class Sender(BasicSender.BasicSender):
                 if Checksum.validate_checksum(packet_response):
                     msg_type, seqno, data, checksum = self.split_packet(packet_response)
 
+                    if self.sackMode:
+                        seqno = int(seqno.split(";")[0])
                     # For some reason, 'seqno' is returned as a string... so we parse it into an integer
-                    seqno = int(seqno)
+                    else:
+                        seqno = int(seqno)
 
                     # Do ACKs have data? Probably not?
                     if (self.debug):
@@ -201,13 +208,23 @@ class Sender(BasicSender.BasicSender):
         #       1 2 3 (dropped) 4 5 6 7 3 4 5 6 7
         # ACKS: 2 3 3           3 3 3 3 8 8 8 8 8
 
-        for seqno in self.window.seqno_to_packet_map:
-            current_packet = self.window.get_packet_via_seqno(seqno)
+        if self.sackMode:
+            for seqno in self.window.seqno_to_packet_map:
+                current_packet_pair = self.window.get_packet_pair_via_seqno(seqno)
 
-            if self.debug:
-                print("We are able to resend packet %s" % seqno)
+                # If we're in SACK mode, then resend all packets in our window that have not been received successfully
+                if (current_packet_pair[1] == False):
+                    self.send(current_packet_pair[0])
+                    if self.debug:
+                        print("We are able to resend packet %s" % seqno)
+        else:
+            for seqno in self.window.seqno_to_packet_map:
+                current_packet = self.window.get_packet_via_seqno(seqno)
 
-            self.send(current_packet)
+                if self.debug:
+                    print("We are able to resend packet %s" % seqno)
+
+                self.send(current_packet)
 
     # Called when we encounter an ACK with a sequence number that we have never seen before
     def handle_new_ack(self, ack):
@@ -228,6 +245,13 @@ class Sender(BasicSender.BasicSender):
 
         # Because we haven't seen the current ACK before, put it in our ACK map
         self.window.add_acks_count_to_map(ack, 0)
+
+        # Iterate through our packet map, and for every packet with a lower sequence number than this received ACK,
+        # Update the packet pair's "received" boolean to True
+        for seqno in self.window.seqno_to_packet_map:
+            if seqno < ack:
+                current_packet_pair = self.window.get_packet_pair_via_seqno(seqno)
+                current_packet_pair[1] = True
 
     def handle_dup_ack(self, ack):
         if (self.debug):

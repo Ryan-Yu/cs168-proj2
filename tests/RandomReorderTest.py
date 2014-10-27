@@ -15,7 +15,7 @@ create your own.
 """
 class RandomReorderTest(BasicTest):
     def __init__(self, forwarder, input_file):
-        BasicTest.__init__(self, forwarder, input_file)
+        BasicTest.__init__(self, forwarder, input_file, sackMode = True)
         self.max_capacity = 4
         self.buffer_list = []
         self.myname = "RandomReorderTest"

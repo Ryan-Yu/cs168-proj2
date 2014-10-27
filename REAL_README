@@ -5,4 +5,10 @@ Ryan Yu: cs168-pu
 
 2. Challenges:
 
+The challenges in this project were understanding the API and the given methods, and understanding how GBN & selective repeat actually worked. We knew in theory how each individual component worked after looking at the code, but it took us a while to figure out how to integrate the given methods (i.e. handle_timeout(), receive(), handle_dup_ack(), handle_new_ack()) with the start() method.
+
+Furthermore, a thing that gave us a lot of trouble was figuring out how to get started with splitting a file into n-byte-sized chunks, and how these chunks were meant to be read and parsed by the Sender.
+
 3. Time Spent:
+
+We spent approximately 15 hours on this project.

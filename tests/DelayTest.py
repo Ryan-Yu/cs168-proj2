@@ -14,7 +14,7 @@ create your own.
 """
 class DelayTest(BasicTest):
     def __init__(self, forwarder, input_file):
-        BasicTest.__init__(self, forwarder, input_file)
+        BasicTest.__init__(self, forwarder, input_file, sackMode = True)
         self.myname = "RandomDelayTest"
 
     def handle_packet(self):

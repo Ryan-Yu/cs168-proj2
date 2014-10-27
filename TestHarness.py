@@ -26,6 +26,7 @@ def tests_to_run(forwarder):
     RandomDuplicateTest.RandomDuplicateTest(forwarder, "README")
     RandomReorderTest.RandomReorderTest(forwarder, "README")
     BasicTest.BasicTest(forwarder, "one_char.txt")
+    SackRandomDropTest.SackRandomDropTest(forwarder, "README")
 """
 Testing is divided into two pieces: this forwarder and a set of test cases in
 the tests directory.
