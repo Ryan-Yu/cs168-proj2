@@ -258,10 +258,11 @@ class Sender(BasicSender.BasicSender):
             print("We are now handling the duplicate ACK %s!!!!!!!!!!!!!!!!!" % ack)
 
         # Grab packet that has the sequence number of 'ack', and resend it
-        packet_to_resend = self.window.get_packet_via_seqno(ack)
-        self.send(packet_to_resend)
-        if (self.debug):
-            print("We just resent ACK %s due to fast retransmit!!!!!" % ack)
+        if (self.window.is_seqno_contained_in_packet_map(ack)):
+            packet_to_resend = self.window.get_packet_via_seqno(ack)
+            self.send(packet_to_resend)
+            if (self.debug):
+                print("We just resent ACK %s due to fast retransmit!!!!!" % ack)
 
     def log(self, msg):
         if self.debug:
