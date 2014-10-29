@@ -21,7 +21,7 @@ class DelayTest(BasicTest):
         for p in self.forwarder.in_queue:
             if random.choice([True, False]):
                 random_delaytime = random.randrange(1000)/1000.0
-                print "Packet delayed: "+str(random_delaytime)
+                # print "Packet delayed: "+str(random_delaytime)
                 time.sleep(random_delaytime)
             self.forwarder.out_queue.append(p)
 
